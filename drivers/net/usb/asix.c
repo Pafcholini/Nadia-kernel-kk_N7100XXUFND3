@@ -134,6 +134,13 @@ static void ax88178_status(struct usbnet *dev, struct urb *urb)
 	struct ax88172_int_data *event;
 	struct ax88178_data *ax178dataptr = (struct ax88178_data *)dev->priv;
 	int link;
+	int padlen;
+	int headroom = skb_headroom(skb);
+	int tailroom = skb_tailroom(skb);
+	u32 packet_len;
+	u32 padbytes = 0xffff0000;
+
+	padlen = ((skb->len + 4) & (dev->maxpacket - 1)) ? 0 : 4;
 
 	if (urb->actual_length < 8)
 		return;
@@ -150,6 +157,10 @@ static void ax88178_status(struct usbnet *dev, struct urb *urb)
 		} else
 			netif_carrier_off(dev->net);
 		devwarn(dev, "ax88178 - Link status is: %d", link);
+	if (padlen) {
+		cpu_to_le32s(&padbytes);
+		memcpy(skb_tail_pointer(skb), &padbytes, sizeof(padbytes));
+		skb_put(skb, sizeof(padbytes));
 	}
 }
 
