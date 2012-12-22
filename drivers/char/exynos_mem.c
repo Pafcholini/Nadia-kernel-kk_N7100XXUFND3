@@ -24,6 +24,7 @@
 #include <plat/cpu.h>
 
 #include <linux/exynos_mem.h>
+#include <mach/cma_check.h>
 
 #define L2_FLUSH_ALL	SZ_1M
 #define L1_FLUSH_ALL	SZ_64K
@@ -267,6 +268,13 @@ int exynos_mem_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (!cma_is_registered_region(start, size)) {
 		pr_err("[%s] handling non-cma region (%#x@%#x)is prohibited\n",
 						__func__, size, start);
+	if(check_memspace_against_cma_blocks(start, size) != 0)
+		return -EINVAL;
+
+	/* TODO: currently lowmem is only avaiable */
+	if ((phys_to_virt(start) < (void *)PAGE_OFFSET) ||
+	    (phys_to_virt(start) >= high_memory)) {
+		pr_err("[%s] invalid paddr(0x%08x)\n", __func__, start);
 		return -EINVAL;
 	}
 
