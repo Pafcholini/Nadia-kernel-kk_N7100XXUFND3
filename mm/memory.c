@@ -2461,8 +2461,12 @@ int vm_iomap_memory(struct vm_area_struct *vma, phys_addr_t start,
 		return -EINVAL;
 
 	/* Ok, let it rip */
+<<<<<<< HEAD
 	return io_remap_pfn_range(vma, vma->vm_start, pfn, vm_len,
 							vma->vm_page_prot);
+=======
+	return io_remap_pfn_range(vma, vma->vm_start, pfn, vm_len, vma->vm_page_prot);
+>>>>>>> 90e22fd... Linux 3.0.75
 }
 EXPORT_SYMBOL(vm_iomap_memory);
 
