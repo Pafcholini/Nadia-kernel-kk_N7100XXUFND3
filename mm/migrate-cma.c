@@ -540,8 +540,12 @@ static int __migrate_page(struct address_space *mapping,
 }
 
 int migrate_page(struct address_space *mapping,
+<<<<<<< HEAD
 		struct page *newpage, struct page *page,
 		enum migrate_mode mode)
+=======
+		struct page *newpage, struct page *page)
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 {
 	return __migrate_page(mapping, newpage, page, mode, 0, 0);
 }
@@ -554,13 +558,13 @@ EXPORT_SYMBOL(migrate_page);
  * exist.
  */
 int buffer_migrate_page(struct address_space *mapping,
-		struct page *newpage, struct page *page, enum migrate_mode mode)
+		struct page *newpage, struct page *page)
 {
 	struct buffer_head *bh, *head;
 	int rc;
 
 	if (!page_has_buffers(page))
-		return migrate_page(mapping, newpage, page, mode);
+		return migrate_page(mapping, newpage, page);
 
 	head = page_buffers(page);
 
@@ -702,8 +706,8 @@ static int fallback_migrate_page(struct address_space *mapping,
  *  == 0 - success
  */
 static int move_to_new_page(struct page *newpage, struct page *page,
-				int remap_swapcache, enum migrate_mode mode,
-				int pass, int tries)
+					int remap_swapcache, bool sync,
+					int pass, int tries)
 {
 	struct address_space *mapping;
 	int rc;
@@ -745,6 +749,7 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 	else if (mapping->a_ops->migratepage) 
 	{
 		/*
+<<<<<<< HEAD
 		 * Most pages have a mapping and most filesystems provide a
 		 * migratepage callback. Anonymous pages are part of swap
 		 * space which also has its own migratepage callback. This
@@ -756,6 +761,38 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 			if (is_failed_page(page, pass, tries)) {
 				printk(KERN_ERR "%s[%d]: 3 ", __func__, __LINE__);
 				dump_page(page);
+=======
+		 * Do not writeback pages if !sync and migratepage is
+		 * not pointing to migrate_page() which is nonblocking
+		 * (swapcache/tmpfs uses migratepage = migrate_page).
+		 */
+		if (PageDirty(page) && !sync &&
+		    mapping->a_ops->migratepage != migrate_page) {
+			rc = -EBUSY;
+			if (rc) {
+				if (is_failed_page(page, pass, tries)) {
+					printk(KERN_ERR "%s[%d]: 2 ",
+							 __func__, __LINE__);
+					dump_page(page);
+				}
+			}
+		} else if (mapping->a_ops->migratepage) {
+			/*
+			 * Most pages have a mapping and most filesystems
+			 * should provide a migration function. Anonymous
+			 * pages are part of swap space which also has its
+			 * own migration function. This is the most common
+			 * path for page migration.
+			 */
+			rc = mapping->a_ops->migratepage(mapping,
+							newpage, page);
+			if (rc) {
+				if (is_failed_page(page, pass, tries)) {
+					printk(KERN_ERR "%s[%d]: 3 ",
+							__func__, __LINE__);
+					dump_page(page);
+				}
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 			}
 		}
 	} else {
@@ -780,8 +817,17 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 	return rc;
 }
 
+<<<<<<< HEAD
 static int __unmap_and_move(struct page *page, struct page *newpage,
 			int force, bool offlining, enum migrate_mode mode,
+=======
+/*
+ * Obtain the lock on page, remove all ptes and migrate the page
+ * to the newly allocated page in newpage.
+ */
+static int unmap_and_move(new_page_t get_new_page, unsigned long private,
+			struct page *page, int force, bool offlining, bool sync,
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 			int pass, int tries)
 {
 	int rc = -EAGAIN;
@@ -791,7 +837,7 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 	struct anon_vma *anon_vma = NULL;
 
 	if (!trylock_page(page)) {
-		if (!force || mode == MIGRATE_ASYNC) {
+		if (!force || !sync) {
 			if (is_failed_page(page, pass, tries)) {
 				printk("%s[%d] 1 ", __func__, __LINE__);
 				dump_page(page);
@@ -855,7 +901,11 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 		 * For !sync, there is no point retrying as the retry loop
 		 * is expected to be too short for PageWriteback to be cleared
 		 */
+<<<<<<< HEAD
 		if (mode != MIGRATE_SYNC) {
+=======
+		if (!sync) {
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 			rc = -EBUSY;
 			goto uncharge;
 		}
@@ -934,7 +984,12 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 
 skip_unmap:
 	if (!page_mapped(page)) {
+<<<<<<< HEAD
 		rc = move_to_new_page(newpage, page, remap_swapcache, mode, 0, 0);
+=======
+		rc = move_to_new_page(newpage, page, remap_swapcache, sync,
+					pass, tries);
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 		if (rc) {
 			if (is_failed_page(page, pass, tries)) {
 				printk("%s[%d] 5 ", __func__, __LINE__);
@@ -1032,8 +1087,12 @@ out:
  */
 static int unmap_and_move_huge_page(new_page_t get_new_page,
 				unsigned long private, struct page *hpage,
+<<<<<<< HEAD
 				int force, bool offlining,
 				enum migrate_mode mode)
+=======
+				int force, bool offlining, bool sync)
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 {
 	int rc = 0;
 	int *result = NULL;
@@ -1046,7 +1105,11 @@ static int unmap_and_move_huge_page(new_page_t get_new_page,
 	rc = -EAGAIN;
 
 	if (!trylock_page(hpage)) {
+<<<<<<< HEAD
 		if (!force || mode != MIGRATE_SYNC)
+=======
+		if (!force || !sync)
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 			goto out;
 		lock_page(hpage);
 	}
@@ -1057,7 +1120,7 @@ static int unmap_and_move_huge_page(new_page_t get_new_page,
 	try_to_unmap(hpage, TTU_MIGRATION|TTU_IGNORE_MLOCK|TTU_IGNORE_ACCESS);
 
 	if (!page_mapped(hpage))
-		rc = move_to_new_page(new_hpage, hpage, 1, mode, 0, 0);
+		rc = move_to_new_page(new_hpage, hpage, 1, sync, 0, 0);
 
 	if (rc)
 		remove_migration_ptes(hpage, hpage);
@@ -1102,7 +1165,7 @@ struct page *migrate_pages_current = NULL;
  */
 int migrate_pages(struct list_head *from,
 		new_page_t get_new_page, unsigned long private, bool offlining,
-		enum migrate_mode mode, int tries)
+		bool sync, int tries)
 {
 	int retry = 1;
 	int nr_failed = 0;
@@ -1123,7 +1186,11 @@ int migrate_pages(struct list_head *from,
 
 			rc = unmap_and_move(get_new_page, private,
 						page, pass > 2, offlining,
+<<<<<<< HEAD
 						mode);
+=======
+						sync, pass, tries);
+>>>>>>> 8700730... mm: revert memory management changes made from 3.0.31 to 3.0.101 (googyanas)
 			if (rc)
 				failed_pages[tries][pass] = page;
 
@@ -1161,7 +1228,7 @@ out:
 
 int migrate_huge_pages(struct list_head *from,
 		new_page_t get_new_page, unsigned long private, bool offlining,
-		enum migrate_mode mode)
+		bool sync)
 {
 	int retry = 1;
 	int nr_failed = 0;
@@ -1178,7 +1245,7 @@ int migrate_huge_pages(struct list_head *from,
 
 			rc = unmap_and_move_huge_page(get_new_page,
 					private, page, pass > 2, offlining,
-					mode);
+					sync);
 
 			switch (rc) {
 			case -ENOMEM:
