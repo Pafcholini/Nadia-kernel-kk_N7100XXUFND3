@@ -376,7 +376,7 @@ power_attr(wake_unlock);
 #endif
 
 #ifdef CONFIG_DVFS_LIMIT
-static int cpufreq_max_limit_val = -1;
+int cpufreq_max_limit_val = -1;
 /* Yank555.lu - not yet defined at startup */
 int cpufreq_max_limit_coupled = SCALING_MAX_UNDEFINED;
 static int cpufreq_min_limit_val = -1;
