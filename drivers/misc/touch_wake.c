@@ -240,6 +240,12 @@ static ssize_t touchwake_delay_write(struct device * dev, struct device_attribut
 	return size;
 }
 
+int get_touchoff_delay()
+{   
+	return touchoff_delay;
+}
+EXPORT_SYMBOL(get_touchoff_delay);
+
 static ssize_t touchwake_version(struct device * dev, struct device_attribute * attr, char * buf)
 {
 	return sprintf(buf, "%s\n", TOUCHWAKE_VERSION);
@@ -357,6 +363,7 @@ void touch_press(void)
 	return;
 }
 EXPORT_SYMBOL(touch_press);
+
 
 void set_powerkeydev(struct input_dev * input_device)
 {   
