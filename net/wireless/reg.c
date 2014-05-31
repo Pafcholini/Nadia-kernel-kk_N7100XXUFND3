@@ -2110,7 +2110,6 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
 
                 return 0;
         }
->>>>>>> 70ab44a... reg: Fix memory leak
 
 	if (!intersected_rd)
 		return -EINVAL;
