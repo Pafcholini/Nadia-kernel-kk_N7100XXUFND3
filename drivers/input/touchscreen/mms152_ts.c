@@ -179,6 +179,11 @@ static unsigned int x_lo;
 static unsigned int x_hi;
 static unsigned int y_tolerance = 132;
 
+static bool knockon_reset = false;
+#ifdef CONFIG_TOUCH_WAKE
+static bool mms_ts_suspended = false;
+#endif
+
 #define ISC_DL_MODE	1
 
 /* 5.55" OCTA LCD */
@@ -1150,8 +1155,20 @@ static irqreturn_t mms_ts_interrupt(int irq, void *dev_id)
 		}
 		touch_is_pressed++;
 #ifdef CONFIG_TOUCH_WAKE
-if (get_touchoff_delay() != 0)
-touch_press();
+		if (mms_ts_suspended) {
+			if (knockon) {
+				if (touch_is_pressed == 0) {
+					if (knockon_reset) {
+						knockon_reset = false;
+						touch_press();
+					} else {
+						knockon_reset = true;
+					}
+				}
+			} else {
+				touch_press();
+			}
+		}
 #endif
 	}
 	input_sync(info->input_dev);
@@ -4244,6 +4261,8 @@ static void mms_ts_early_suspend(struct early_suspend *h)
 	struct mms_ts_info *info;
 	info = container_of(h, struct mms_ts_info, early_suspend);
 	mms_ts_suspend(&info->client->dev);
+#else
+	mms_ts_suspended = true;
 #endif
 }
 
@@ -4253,6 +4272,8 @@ static void mms_ts_late_resume(struct early_suspend *h)
 	struct mms_ts_info *info;
 	info = container_of(h, struct mms_ts_info, early_suspend);
 	mms_ts_resume(&info->client->dev);
+#else
+	mms_ts_suspended = false;
 #endif
 }
 #endif
