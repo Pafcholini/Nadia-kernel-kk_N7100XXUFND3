@@ -79,7 +79,7 @@ static ssize_t touchboost_freq_show(struct device *dev, struct device_attribute 
 {
 	// return value of current touchboost status
 
-	return sprintf(buf, "%d - Touchboost frequency\n", tb_freq);
+	return sprintf(buf, "%d", tb_freq);
 
 }
 
