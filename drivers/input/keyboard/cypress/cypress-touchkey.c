@@ -1568,7 +1568,7 @@ static ssize_t sec_keypad_enable_store(struct device *dev,
 {
 	struct touchkey_i2c *tkey_i2c = dev_get_drvdata(dev);
 
-	unsigned int val = 0;
+	unsigned int val = 1;
 	sscanf(buf, "%d", &val);
 	val = (val == 0 ? 0 : 1);
 	atomic_set(&tkey_i2c->keypad_enable, val);
