@@ -46,11 +46,11 @@ static ssize_t touchboost_switch_show(struct device *dev, struct device_attribut
 	// return value of current touchboost status
 	switch(tb_switch) {
 
-		case TOUCHBOOST_ON:	return sprintf(buf, "%d - Touchboost enabled\n", tb_switch);
+		case TOUCHBOOST_ON:	return sprintf(buf, "%d", tb_switch);
 
-		case TOUCHBOOST_OFF:	return sprintf(buf, "%d - Touchboost disabled\n", tb_switch);
+		case TOUCHBOOST_OFF:	return sprintf(buf, "%d", tb_switch);
 
-		default:		return sprintf(buf, "%d - problem, undefined value\n", tb_switch);
+		default:		return sprintf(buf, "%d", tb_switch);
 
 	}
 }
