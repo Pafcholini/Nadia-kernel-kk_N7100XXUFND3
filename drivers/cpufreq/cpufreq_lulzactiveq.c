@@ -81,6 +81,7 @@ struct cpufreq_lulzactive_cpuinfo {
 	struct cpufreq_frequency_table lulzfreq_table[32];
 	unsigned int lulzfreq_table_size;
 	unsigned int target_freq;
+	unsigned int prev_load;
 	int governor_enabled;
 	int cpu;
 	struct delayed_work work;
@@ -302,6 +303,14 @@ static unsigned int get_nr_run_avg(void)
 #define HOTPLUG_DOWN_INDEX			(0)
 #define HOTPLUG_UP_INDEX			(1)
 
+#define DEF_GRAD_UP_THRESHOLD 			(50)
+#define DEF_GRAD_DOWN_THRESHOLD 		(40)
+#define DEF_UP_THRESHOLD_DIFF			(10)
+
+static unsigned int inc_cpu_load_awake;
+static unsigned int dec_cpu_load_awake;
+
+
 #ifdef CONFIG_MACH_MIDAS
 static int hotplug_rq[4][2] = {
 	{0, 200}, {200, 300}, {300, 400}, {400, 0}
@@ -353,6 +362,10 @@ static struct dbs_tuners {
 	atomic_t hotplug_lock;
 	unsigned int dvfs_debug;
 	unsigned int ignore_nice;
+	unsigned int grad_up_threshold;
+	unsigned int grad_down_threshold;
+	unsigned int up_threshold_diff;
+	bool early_demand;
 
 } dbs_tuners_ins = {
 	.hotplug_sampling_rate=DEF_SAMPLING_RATE,
@@ -365,6 +378,10 @@ static struct dbs_tuners {
 	.hotplug_lock = ATOMIC_INIT(0),
 	.dvfs_debug = 0,
 	.ignore_nice = 0,
+	.early_demand = 1,
+	.grad_up_threshold = DEF_GRAD_UP_THRESHOLD,
+	.grad_down_threshold = DEF_GRAD_DOWN_THRESHOLD,
+	.up_threshold_diff = DEF_UP_THRESHOLD_DIFF,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #endif
 };
@@ -438,6 +455,9 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 	cputime64_t cur_nice;
 	unsigned long cur_nice_jiffies;
 	unsigned long flags;
+	int load_diff = 0;
+	bool boost_freq = 0;
+	bool fast_down = 0;
 	int ret;
 
 	smp_rmb();
@@ -553,11 +573,39 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 	if (load_since_change > cpu_load)
 		cpu_load = load_since_change;
 
+        /*
+        * Calculate the gradient of load_freq. If it is too steep we assume
+        * that the load will go over up_threshold in next iteration(s) and
+        * we increase the frequency immediately
+        */
+
+        if (dbs_tuners_ins.early_demand) {
+        load_diff = cpu_load - pcpu->prev_load;
+           if (cpu_load > pcpu->prev_load &&
+           (load_diff > dbs_tuners_ins.grad_up_threshold))
+                 boost_freq = 1;
+
+           if (cpu_load < pcpu->prev_load &&
+           (pcpu->prev_load - cpu_load >
+           dbs_tuners_ins.grad_down_threshold))
+                 fast_down = 1;
+
+        pcpu->prev_load = cpu_load;
+        }
+
 	/*
-	 * START lulzactive algorithm section
+	 * START devil algorithm section
 	 */
-	if (cpu_load >= inc_cpu_load) {
-		if (pump_up_step) {
+	if ((cpu_load >= inc_cpu_load && !fast_down) || boost_freq) {
+	   unsigned int pump_up_step = 1;
+    		if (cpu_load >= inc_cpu_load + 2 * dbs_tuners_ins.up_threshold_diff ||
+        	load_diff > 3 * dbs_tuners_ins.up_threshold_diff)
+		pump_up_step = 3;
+
+    		else if (cpu_load >= inc_cpu_load + dbs_tuners_ins.up_threshold_diff ||
+        	load_diff > 2 * dbs_tuners_ins.up_threshold_diff)
+		pump_up_step = 2;
+
 			if (pcpu->policy->cur < pcpu->policy->max) {
 				ret = cpufreq_frequency_table_target(
 					pcpu->policy, pcpu->lulzfreq_table,
@@ -590,9 +638,15 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 					__func__, data, cpu_load, inc_cpu_load, pcpu->policy->cur, new_freq);
 			}
 		}
-	}
-	else if (cpu_load <= dec_cpu_load){		
-		if (pump_down_step) {
+
+	else if (cpu_load <= dec_cpu_load || fast_down){
+	   unsigned int pump_down_step = 1;
+    		if (cpu_load <= dec_cpu_load - 2 * dbs_tuners_ins.up_threshold_diff)
+		pump_down_step = 3;
+
+    		else if (cpu_load <= dec_cpu_load - dbs_tuners_ins.up_threshold_diff)
+		pump_down_step = 2;
+
 			ret = cpufreq_frequency_table_target(
 				pcpu->policy, pcpu->lulzfreq_table,
 				pcpu->policy->cur, CPUFREQ_RELATION_H,
@@ -621,7 +675,7 @@ static void cpufreq_lulzactive_timer(unsigned long data)
 						__func__, data, cpu_load, dec_cpu_load, pcpu->policy->cur, new_freq);
 			}
 		}
-	}
+
 	else
 	{
 		new_freq = pcpu->policy->cur; //pcpu->lulzfreq_table[index].frequency;
@@ -1373,6 +1427,10 @@ show_one(max_cpu_lock, max_cpu_lock);
 show_one(min_cpu_lock, min_cpu_lock);
 show_one(dvfs_debug, dvfs_debug);
 show_one(ignore_nice_load, ignore_nice);
+show_one(grad_up_threshold, grad_up_threshold);
+show_one(grad_down_threshold, grad_down_threshold);
+show_one(early_demand, early_demand);
+
 static ssize_t show_hotplug_lock(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
@@ -1607,6 +1665,51 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 	return count;
 }
 
+static ssize_t store_grad_up_threshold(struct kobject *a,
+      struct attribute *b, const char *buf, size_t count)
+{
+  unsigned int input;
+  int ret;
+  ret = sscanf(buf, "%u", &input);
+
+  if (ret != 1 || input > 100 ||
+      input < 11) {
+    return -EINVAL;
+  }
+
+  dbs_tuners_ins.grad_up_threshold = input;
+  return count;
+}
+
+static ssize_t store_grad_down_threshold(struct kobject *a,
+      struct attribute *b, const char *buf, size_t count)
+{
+  unsigned int input;
+  int ret;
+  ret = sscanf(buf, "%u", &input);
+
+  if (ret != 1 || input > 100 ||
+      input < 11) {
+    return -EINVAL;
+  }
+
+  dbs_tuners_ins.grad_down_threshold = input;
+  return count;
+}
+
+static ssize_t store_early_demand(struct kobject *a, struct attribute *b,
+          const char *buf, size_t count)
+{
+  unsigned int input;
+  int ret;
+
+  ret = sscanf(buf, "%u", &input);
+  if (ret != 1)
+    return -EINVAL;
+  dbs_tuners_ins.early_demand = !!input;
+  return count;
+}
+
 
 define_one_global_rw(hotplug_sampling_rate);
 #ifndef CONFIG_CPU_EXYNOS4210
@@ -1619,6 +1722,9 @@ define_one_global_rw(dvfs_debug);
 define_one_global_rw(cpu_up_rate);
 define_one_global_rw(cpu_down_rate);
 define_one_global_rw(ignore_nice_load);
+define_one_global_rw(grad_up_threshold);
+define_one_global_rw(grad_down_threshold);
+define_one_global_rw(early_demand);
 
 
 static struct attribute *lulzactive_attributes[] = {
@@ -1632,6 +1738,9 @@ static struct attribute *lulzactive_attributes[] = {
 	&screen_off_max_step_attr.attr,
 	&debug_mode_attr.attr,
 	&ignore_nice_load.attr,
+	&grad_up_threshold.attr,
+	&grad_down_threshold.attr,
+	&early_demand.attr,
 
     /*hotplug attributes*/
 
@@ -1949,6 +2058,8 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
         /* init works and timer of each cpu */
 
         hotplug_history->num_hist = 0;
+  	inc_cpu_load_awake = inc_cpu_load;
+  	dec_cpu_load_awake = dec_cpu_load;
         start_rq_work();
 		freq_table =
 			cpufreq_frequency_get_table(policy->cpu);
@@ -1980,6 +2091,7 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		/*  starting hotplug */
 		pcpu = &per_cpu(cpuinfo, policy->cpu);
 		pcpu->cpu = policy->cpu;
+		pcpu->prev_load = 0;
 		mutex_init(&pcpu->timer_mutex);
 		hotplug_timer_init (pcpu);
 		/*
@@ -2063,10 +2175,16 @@ static struct notifier_block cpufreq_lulzactive_idle_nb = {
 
 static void lulzactive_early_suspend(struct early_suspend *handler) {
 	early_suspended = 1;
+  	inc_cpu_load_awake = inc_cpu_load;
+  	dec_cpu_load_awake = dec_cpu_load;
+	inc_cpu_load = 90;
+	dec_cpu_load = 75;
 }
 
 static void lulzactive_late_resume(struct early_suspend *handler) {
 	early_suspended = 0;
+	inc_cpu_load = inc_cpu_load_awake;
+	dec_cpu_load = dec_cpu_load_awake;
 }
 
 static struct early_suspend lulzactive_power_suspend = {
