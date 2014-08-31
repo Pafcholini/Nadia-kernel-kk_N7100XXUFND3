@@ -71,8 +71,6 @@ EXPORT_SYMBOL(switch_dev);
 extern bool is_cable_attached;
 bool is_jig_attached;
 
-bool device_charging = false;
-
 #if 0
 static ssize_t midas_switch_show_vbus(struct device *dev,
 				      struct device_attribute *attr, char *buf)
@@ -311,13 +309,6 @@ int max77693_muic_charger_cb(enum cable_type_muic cable_type)
 #endif
 
 	pr_info("%s: %d\n", __func__, cable_type);
-
-	if (cable_type > 0) {
-		device_charging = true;
-	}
-	else if (cable_type == 0) {
-		device_charging = false;
-	}
 
 	switch (cable_type) {
 	case CABLE_TYPE_NONE_MUIC:
