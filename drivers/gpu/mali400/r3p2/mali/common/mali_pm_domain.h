@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -18,16 +18,14 @@
 #include "mali_group.h"
 #include "mali_pmu.h"
 
-typedef enum
-{
+typedef enum {
 	MALI_PM_DOMAIN_ON,
 	MALI_PM_DOMAIN_OFF,
 } mali_pm_domain_state;
 
-struct mali_pm_domain
-{
+struct mali_pm_domain {
 	mali_pm_domain_state state;
-	_mali_osk_lock_t *lock;
+	_mali_osk_spinlock_irq_t *lock;
 
 	s32 use_count;
 
@@ -39,16 +37,19 @@ struct mali_pm_domain
 	struct mali_l2_cache_core *l2;
 };
 
-struct mali_pm_domain *mali_pm_domain_create(u32 id, u32 pmu_mask);
-void mali_pm_domain_add_group(u32 id, struct mali_group *group);
-void mali_pm_domain_add_l2(u32 id, struct mali_l2_cache_core *l2);
+struct mali_pm_domain *mali_pm_domain_create(u32 pmu_mask);
+
+void mali_pm_domain_add_group(u32 mask, struct mali_group *group);
+
+void mali_pm_domain_add_l2(u32 mask, struct mali_l2_cache_core *l2);
 void mali_pm_domain_delete(struct mali_pm_domain *domain);
 
 void mali_pm_domain_terminate(void);
 
 /** Get PM domain from domain ID
  */
-struct mali_pm_domain *mali_pm_domain_get(u32 id);
+struct mali_pm_domain *mali_pm_domain_get_from_mask(u32 mask);
+struct mali_pm_domain *mali_pm_domain_get_from_index(u32 id);
 
 /* Ref counting */
 void mali_pm_domain_ref_get(struct mali_pm_domain *domain);

@@ -15,9 +15,9 @@
 
 /* Make sure debug is defined when it should be */
 #ifndef DEBUG
-	#if defined(_DEBUG)
-		#define DEBUG
-	#endif
+#if defined(_DEBUG)
+#define DEBUG
+#endif
 #endif
 
 /* MALI_SEC */

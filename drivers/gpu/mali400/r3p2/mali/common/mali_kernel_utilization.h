@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -16,9 +16,6 @@
 
 extern void (*mali_utilization_callback)(struct mali_gpu_utilization_data *data);
 
-#ifdef CONFIG_PM_DEVFREQ	/* MALI_SEC */
-void calculate_gpu_utilization(void *arg);
-#endif
 /**
  * Initialize/start the Mali GPU utilization metrics reporting.
  *
