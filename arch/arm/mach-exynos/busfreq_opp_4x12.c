@@ -1110,7 +1110,7 @@ int exynos4x12_init(struct device *dev, struct busfreq_data *data)
 
 	if (samsung_rev() >= EXYNOS4412_REV_2_0) {
 		opp_disable(dev, 440293);
-		maxfreq = 440220;
+		maxfreq = 440293;
 	} else {
 		/* opp_disable(dev, 267200); */
 	}
