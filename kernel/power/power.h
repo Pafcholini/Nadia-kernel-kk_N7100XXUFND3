@@ -73,6 +73,16 @@ static inline void hibernate_image_size_init(void) {}
 
 extern int pfn_is_nosave(unsigned long);
 
+#define power_ro_attr(_name) \
+static struct kobj_attribute _name##_attr = {	\
+	.attr	= {				\
+		.name = __stringify(_name),	\
+		.mode = 0444,			\
+	},					\
+	.show	= _name##_show,			\
+	.store	= NULL,		\
+}
+
 #define power_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
 	.attr	= {				\

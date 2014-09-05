@@ -13,6 +13,7 @@
  *
  */
 
+#include <linux/delay.h>
 #include <linux/earlysuspend.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -27,11 +28,33 @@ static enum {
 	FB_STATE_DRAWING_OK,
 } fb_state;
 
+unsigned int pause = 0;
+
+
+static ssize_t fb_pause_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", pause);
+}
+
+static ssize_t fb_pause_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf, size_t count)
+{
+	unsigned int data;
+
+	if(sscanf(buf, "%u\n", &data) == 1) {
+			pause = data;
+		}
+	return count;
+}
+
 /* tell userspace to stop drawing, wait for it to stop */
 static void stop_drawing_early_suspend(struct early_suspend *h)
 {
 	int ret;
 	unsigned long irq_flags;
+
+    /* FIXME: earlysuspend breaks androids CRT-off animation
+     * Sleep a little bit to get it played properly */
+    if (pause > 0 && pause <= 500)msleep(pause);
 
 	spin_lock_irqsave(&fb_state_lock, irq_flags);
 	fb_state = FB_STATE_REQUEST_STOP_DRAWING;
@@ -102,22 +125,14 @@ static ssize_t wait_for_fb_wake_show(struct kobject *kobj,
 	return s - buf;
 }
 
-#define power_ro_attr(_name) \
-static struct kobj_attribute _name##_attr = {	\
-	.attr	= {				\
-		.name = __stringify(_name),	\
-		.mode = 0444,			\
-	},					\
-	.show	= _name##_show,			\
-	.store	= NULL,		\
-}
-
 power_ro_attr(wait_for_fb_sleep);
 power_ro_attr(wait_for_fb_wake);
+power_attr(fb_pause);
 
 static struct attribute *g[] = {
 	&wait_for_fb_sleep_attr.attr,
 	&wait_for_fb_wake_attr.attr,
+	&fb_pause_attr.attr,
 	NULL,
 };
 
