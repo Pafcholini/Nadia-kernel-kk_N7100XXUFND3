@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2012 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -16,7 +16,8 @@ static const int bcast_unit_reg_size = 0x1000;
 static const int bcast_unit_addr_broadcast_mask = 0x0;
 static const int bcast_unit_addr_irq_override_mask = 0x4;
 
-struct mali_bcast_unit {
+struct mali_bcast_unit
+{
 	struct mali_hw_core hw_core;
 	u32 current_mask;
 };
@@ -29,17 +30,21 @@ struct mali_bcast_unit *mali_bcast_unit_create(const _mali_osk_resource_t *resou
 	MALI_DEBUG_PRINT(2, ("Mali Broadcast unit: Creating Mali Broadcast unit: %s\n", resource->description));
 
 	bcast_unit = _mali_osk_malloc(sizeof(struct mali_bcast_unit));
-	if (NULL == bcast_unit) {
+	if (NULL == bcast_unit)
+	{
 		MALI_PRINT_ERROR(("Mali Broadcast unit: Failed to allocate memory for Broadcast unit\n"));
 		return NULL;
 	}
 
-	if (_MALI_OSK_ERR_OK == mali_hw_core_create(&bcast_unit->hw_core, resource, bcast_unit_reg_size)) {
+	if (_MALI_OSK_ERR_OK == mali_hw_core_create(&bcast_unit->hw_core, resource, bcast_unit_reg_size))
+	{
 		bcast_unit->current_mask = 0;
 		mali_bcast_reset(bcast_unit);
 
 		return bcast_unit;
-	} else {
+	}
+	else
+	{
 		MALI_PRINT_ERROR(("Mali Broadcast unit: Failed map broadcast unit\n"));
 	}
 
