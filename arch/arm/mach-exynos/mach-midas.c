@@ -73,7 +73,6 @@
 #endif
 #ifdef CONFIG_DMA_CMA
 #include <linux/dma-contiguous.h>
-#include <linux/exynos_mem.h>
 #endif
 
 #include <asm/mach/arch.h>
@@ -3896,17 +3895,6 @@ static struct s5p_platform_tvout hdmi_tvout_data __initdata = {
 #endif
 
 #if defined(CONFIG_CMA)
-/* CMA check related parts */
-#include <linux/cma.h>
-#include <mach/cma_check.h>
-
-struct cma_region *p_regions_normal;
-struct cma_region *p_regions_secure;
-
-struct simple_cma_descriptor static_cma_regions[STATIC_CMA_REGION_COUNT];
-size_t size_static_cma_regions = 0;
-/* !CMA check related parts */
-
 static unsigned long fbmem_start;
 static unsigned long fbmem_size;
 static int __init early_fbmem(char *p)
@@ -4263,11 +4251,6 @@ static void __init exynos4_reserve_mem(void)
 #endif
 
 	if (!fbmem_start || !fbmem_size)
-	/* CMA check related */
-	p_regions_normal = regions;
-	p_regions_secure = regions_secure;
-
-	if (!(fbmem_start && fbmem_size))
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(regions); i++) {
@@ -5269,8 +5252,6 @@ static void __init exynos4_reserve(void)
 			pr_err("S5P/CMA: Failed to register '%s'\n",
 						fimc_reg.name);
 	}
-	cma_static_region_add(s3c_device_fimc1.name, 0x65800000,
-				  CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1 * SZ_1K);
 #endif
 
 #if defined(CONFIG_USE_MFC_CMA)
@@ -5281,14 +5262,8 @@ static void __init exynos4_reserve(void)
 	ret = dma_declare_contiguous(&s5p_device_mfc.dev,
 			0x02800000, 0x58800000, 0);
 #elif defined(CONFIG_MACH_GC1)|| defined(CONFIG_MACH_GC2PD)
-
-	cma_static_region_add(s5p_device_mfc.name, 0x5C800000, 0x02800000);
-
-#elif defined(CONFIG_USE_MFC_CMA) && defined(CONFIG_MACH_GC1)
 	ret = dma_declare_contiguous(&s5p_device_mfc.dev,
 			0x02800000, 0x50800000, 0);
-
-	cma_static_region_add(s5p_device_mfc.name, 0x50800000, 0x02800000);
 #endif
 #endif
 	if (ret != 0)
