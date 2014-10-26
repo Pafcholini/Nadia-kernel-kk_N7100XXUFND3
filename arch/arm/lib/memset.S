@@ -14,15 +14,27 @@
 
 	.text
 	.align	5
+	.word	0
+
+1:	subs	r2, r2, #4		@ 1 do we have enough
+	blt	5f			@ 1 bytes to align with?
+	cmp	r3, #2			@ 1
+	strltb	r1, [r0], #1		@ 1
+	strleb	r1, [r0], #1		@ 1
+	strb	r1, [r0], #1		@ 1
+	add	r2, r2, r3		@ 1 (r2 = r2 - (4 - r3))
+/*
+ * The pointer is now aligned and the length is adjusted.  Try doing the
+ * memset again.
+ */
 
 ENTRY(memset)
 	ands	r3, r0, #3		@ 1 unaligned?
-	mov	ip, r0			@ preserve r0 as return value
-	bne	6f			@ 1
+	bne	1b			@ 1
 /*
  * we know that the pointer in r0 is aligned to a word boundary.
  */
-1:	orr	r1, r1, r1, lsl #8
+	orr	r1, r1, r1, lsl #8
 	orr	r1, r1, r1, lsl #16
 	mov	r3, r1
 	cmp	r2, #16
@@ -112,13 +124,4 @@ ENTRY(memset)
 	tst	r2, #1
 	strneb	r1, [r0], #1
 	mov	pc, lr
-
-6:	subs	r2, r2, #4		@ 1 do we have enough
-	blt	5b			@ 1 bytes to align with?
-	cmp	r3, #2			@ 1
-	strltb	r1, [ip], #1		@ 1
-	strleb	r1, [ip], #1		@ 1
-	strb	r1, [ip], #1		@ 1
-	add	r2, r2, r3		@ 1 (r2 = r2 - (4 - r3))
-	b	1b
 ENDPROC(memset)
